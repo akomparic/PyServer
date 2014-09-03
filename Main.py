@@ -1,46 +1,51 @@
 __author__ = 'aleksandar'
 
 
-class Auth():
-
-    def __init__(self, app):
-        self._app = app
-
-    def __call__(self, environ, start_response):
-        if self._authenticated(environ.get('HTTP_AUTHORIZATION')):
-            return self._app(environ, start_response)
-        return self._login(environ, start_response)
-
-    def _authenticated(self, header):
-        from base64 import b64decode
-        if not header:
-            return False
-        _, encoded = header.split(None, 1)
-        decoded = b64decode(encoded).decode('UTF-8')
-        username, password = decoded.split(':', 1)
-        if username == 'test':
-            if password == 'shifra':
-                return True
-            return False
+import re
+from cgi import escape
 
 
-    def _login(self, environ, start_response):
-        start_response('401 Authentication Required',
-            [('Content-Type', 'text/html'),
-             ('WWW-Authenticate', 'Basic realm="Login"')])
-        return [b'Login']
-
-
-def app(environ, start_response):
+def index(environ, start_response):
     start_response('200 OK', [('Content-Type', 'text/html')])
-    return [b'Hello, world!']
+    return ['Missing arguments']
+
+
+def authentication(environ, start_response):
+        args = environ['test.url_args']
+        if args:
+            subject = escape(args[0])
+        else:
+            subject = 'Void'
+        start_response('200 OK', [('Content-Type', 'text/html')])
+        return ['''Auth wait %(subject)s ''' % {'subject': subject}]
+
+
+def not_found(environ, start_response):
+    start_response('404 NOT FOUND', [('Content-Type', 'text/plain')])
+    return ['Not found']
+
+urls = [
+    (r'^$', index),
+    (r'auth/?', authentication),
+    (r'auth/(.+)$', authentication)
+]
+
+
+def main_app(environ, start_response):
+    path = environ.get('PATH_INFO', '').lstrip('/')
+    for regex, callback in urls:
+        match = re.search(regex, path)
+        if match is not None:
+            environ['test.url_args'] = match.groups()
+            return callback(environ, start_response)
+    return not_found(environ, start_response)
 
 
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
-    httpd = make_server('', 8080, Auth(app))
+    httpd = make_server('localhost', 8080, main_app)
     print('Serving on port 8080...')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print('Goodbye!')
+        print('Cao!')
