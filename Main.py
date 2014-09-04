@@ -40,7 +40,7 @@ class Selector(object):
 
 class Auth(object):
 
-    def dummyauthenticator (self, username, password):
+    def dummyauthenticator(self, username, password):
         if username == "user" and password == "password":
             return username
         return None
