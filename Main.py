@@ -1,6 +1,3 @@
-__author__ = 'aleksandar'
-
-
 import re
 
 
@@ -11,12 +8,14 @@ class Selector(object):
         return ['Missing arguments']
 
     def authentication(self, environ, start_response):
-        while True:
-            buf = environ['wsgi.input'].read(4096)
-            if len(buf) == 0:
-                break
-        start_response('200 OK', [('Content-Type', 'text/plain')])
-        return ['Goddamn']
+        buf = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+        u = re.search(r'username:\w+', buf)
+        p = re.search(r'password:\w+', buf)
+        utemp = u.group(0)
+        username = utemp[9:]
+        ptemp = p.group(0)
+        password = ptemp[9:]
+        Auth().dummyauthenticator(username, password)
 
     def not_found(self, environ, start_response):
         start_response('404 NOT FOUND', [('Content-Type', 'text/html')])
@@ -41,14 +40,23 @@ class Selector(object):
 class Auth(object):
 
     def dummyauthenticator(self, username, password):
-        if username == "user" and password == "password":
-            return username
+        f = open('authen')
+        fil = f.read()
+        au = re.search(r'username=\w+', fil)
+        ap = re.search(r'password=\w+', fil)
+        autemp = au.group(0)
+        ausername = autemp[9:]
+        aptemp = ap.group(0)
+        apassword = aptemp[9:]
+        if username == ausername and password == apassword:
+            print('Auth good')
         return None
+
 
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
-    httpd = make_server('localhost', 8060, Selector().select)
-    print('Serving on port 8060...')
+    httpd = make_server('localhost', 8050, Selector().select)
+    print('Serving on port 8050...')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
