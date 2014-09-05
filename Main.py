@@ -15,7 +15,7 @@ class Selector(object):
         username = utemp[9:]
         ptemp = p.group(0)
         password = ptemp[9:]
-        Auth().dummyauthenticator(username, password)
+        Auth().authenticator(username, password)
 
     def not_found(self, environ, start_response):
         start_response('404 NOT FOUND', [('Content-Type', 'text/html')])
@@ -39,8 +39,8 @@ class Selector(object):
 
 class Auth(object):
 
-    def dummyauthenticator(self, username, password):
-        f = open('authen')
+    def authenticator(self, username, password):
+        f = open('ident')
         fil = f.read()
         au = re.search(r'username=\w+', fil)
         ap = re.search(r'password=\w+', fil)
@@ -49,8 +49,17 @@ class Auth(object):
         aptemp = ap.group(0)
         apassword = aptemp[9:]
         if username == ausername and password == apassword:
-            print('Auth good')
+            self.filewriter()
         return None
+
+    def filewriter(self):
+        import os
+        path = 'res'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        filename = 'test1'
+        with open(os.path.join(path, filename), 'wb') as temp_file:
+            temp_file.write('Gold star')
 
 
 if __name__ == '__main__':
