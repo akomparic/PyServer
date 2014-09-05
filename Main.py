@@ -40,26 +40,32 @@ class Selector(object):
 class Auth(object):
 
     def authenticator(self, username, password):
-        f = open('ident')
-        fil = f.read()
-        au = re.search(r'username=\w+', fil)
-        ap = re.search(r'password=\w+', fil)
-        autemp = au.group(0)
-        ausername = autemp[9:]
-        aptemp = ap.group(0)
-        apassword = aptemp[9:]
-        if username == ausername and password == apassword:
-            self.filewriter()
+        #f = open('ident')
+        #fil = f.read()
+        #au = re.search(r'username=\w+', fil)
+        #ap = re.search(r'password=\w+', fil)
+        #f.close()
+        #autemp = au.group(0)
+        #ausername = autemp[9:]
+        #aptemp = ap.group(0)
+        #apassword = aptemp[9:]
+        if username == 'Paul' and password == 'Newman':
+            print('Hmm...')
+            #self.filewriter()
         return None
 
-    def filewriter(self):
-        import os
-        path = 'res'
-        if not os.path.exists(path):
-            os.makedirs(path)
-        filename = 'test1'
-        with open(os.path.join(path, filename), 'wb') as temp_file:
-            temp_file.write('Gold star')
+    #def filewriter(self):
+        #import os
+        #buff = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+        #tex = re.search(r'<h3>.+', buff)
+        #xtmp = tex.group(0)
+        #write = xtmp[3:3]
+        #path = 'res'
+        #if not os.path.exists(path):
+        #    os.makedirs(path)
+        #filename = 'test1'
+        #with open(os.path.join(path, filename), 'wb') as temp_file:
+        #    temp_file.write('meh')
 
 
 if __name__ == '__main__':
