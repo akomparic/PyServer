@@ -1,7 +1,7 @@
 import re
 
 
-class Selector(object):
+class Function(object):
 
     def index(self, environ, start_response):
         start_response('200 OK', [('Content-Type', 'text/html')])
@@ -11,11 +11,38 @@ class Selector(object):
         buf = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
         u = re.search(r'username:\w+', buf)
         p = re.search(r'password:\w+', buf)
+        t = re.search(r'<h3>.*</h3>', buf)
         utemp = u.group(0)
         username = utemp[9:]
         ptemp = p.group(0)
         password = ptemp[9:]
-        Auth().authenticator(username, password)
+        textemp = t.group(0)
+        text = textemp[4:-5]
+        f = open('ident')
+        fil = f.read()
+        au = re.search(r'username=\w+', fil)
+        ap = re.search(r'password=\w+', fil)
+        autemp = au.group(0)
+        ausername = autemp[9:]
+        aptemp = ap.group(0)
+        apassword = aptemp[9:]
+        if username == ausername and password == apassword:
+            print ['test ' + text]
+            return self.filewriter(text, start_response)
+        return False
+
+    def filewriter(self, text, start_response):
+        import os
+        from time import strftime
+        tstamp = strftime("%d%m%y%H%M%S")
+        path = 'res'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        filename = 'Transfer_' + tstamp
+        with open(os.path.join(path, filename), 'wb') as temp_file:
+            temp_file.write(text)
+        start_response('200 OK', [('Content-Type', 'text/html')])
+        return ['Text Saved']
 
     def not_found(self, environ, start_response):
         start_response('404 NOT FOUND', [('Content-Type', 'text/html')])
@@ -37,40 +64,9 @@ class Selector(object):
         return self.not_found(environ, start_response)
 
 
-class Auth(object):
-
-    def authenticator(self, username, password):
-        #f = open('ident')
-        #fil = f.read()
-        #au = re.search(r'username=\w+', fil)
-        #ap = re.search(r'password=\w+', fil)
-        #f.close()
-        #autemp = au.group(0)
-        #ausername = autemp[9:]
-        #aptemp = ap.group(0)
-        #apassword = aptemp[9:]
-        if username == 'Paul' and password == 'Newman':
-            print('Hmm...')
-            #self.filewriter()
-        return None
-
-    #def filewriter(self):
-        #import os
-        #buff = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
-        #tex = re.search(r'<h3>.+', buff)
-        #xtmp = tex.group(0)
-        #write = xtmp[3:3]
-        #path = 'res'
-        #if not os.path.exists(path):
-        #    os.makedirs(path)
-        #filename = 'test1'
-        #with open(os.path.join(path, filename), 'wb') as temp_file:
-        #    temp_file.write('meh')
-
-
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
-    httpd = make_server('localhost', 8050, Selector().select)
+    httpd = make_server('localhost', 8050, Function().select)
     print('Serving on port 8050...')
     try:
         httpd.serve_forever()

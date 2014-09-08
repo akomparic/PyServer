@@ -2,8 +2,20 @@
   <dictionary name="aleksandar">
     <words>
       <w>aleksandar</w>
+      <w>apassword</w>
+      <w>aptemp</w>
+      <w>ausername</w>
+      <w>autemp</w>
+      <w>filewriter</w>
       <w>gotov</w>
+      <w>ident</w>
+      <w>makedirs</w>
+      <w>ptemp</w>
+      <w>strnge</w>
+      <w>textemp</w>
+      <w>utemp</w>
       <w>wsgi</w>
+      <w>xtmp</w>
     </words>
   </dictionary>
 </component>
