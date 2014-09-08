@@ -11,7 +11,7 @@ class Function(object):
         buf = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
         u = re.search(r'username:\w+', buf)
         p = re.search(r'password:\w+', buf)
-        t = re.search(r'<h3>.*</h3>', buf)
+        t = re.compile(r'<h3>.*</h3>', re.DOTALL).search(buf)
         utemp = u.group(0)
         username = utemp[9:]
         ptemp = p.group(0)
@@ -27,9 +27,9 @@ class Function(object):
         aptemp = ap.group(0)
         apassword = aptemp[9:]
         if username == ausername and password == apassword:
-            print ['test ' + text]
+            print ['Will be written:  ' + text]
             return self.filewriter(text, start_response)
-        return False
+        return self.badlogin(start_response)
 
     def filewriter(self, text, start_response):
         import os
@@ -47,6 +47,10 @@ class Function(object):
     def not_found(self, environ, start_response):
         start_response('404 NOT FOUND', [('Content-Type', 'text/html')])
         return ['Not found']
+
+    def badlogin(self, start_response):
+        start_response('403 FORBIDDEN', [('Content-Type', 'text/html')])
+        return ['Bad login']
 
     urls = [
         (r'^$', index),
