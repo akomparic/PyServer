@@ -1,23 +1,21 @@
 import re
+import json
 
 
 class Function(object):
-
     def index(self, environ, start_response):
         start_response('200 OK', [('Content-Type', 'text/html')])
         return ['Missing arguments']
 
     def authentication(self, environ, start_response):
-        buf = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
-        u = re.search(r'username:\w+', buf)
-        p = re.search(r'password:\w+', buf)
-        t = re.compile(r'<h3>.*</h3>', re.DOTALL).search(buf)
-        utemp = u.group(0)
-        username = utemp[9:]
-        ptemp = p.group(0)
-        password = ptemp[9:]
-        textemp = t.group(0)
-        text = textemp[4:-5]
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+        except ValueError:
+            request_body_size = 0
+        request_body = environ['wsgi.input'].read(request_body_size)
+        data = json.loads(request_body)
+        username = data['user']
+        password = data['pass']
         f = open('ident')
         fil = f.read()
         au = re.search(r'username=\w+', fil)
@@ -27,22 +25,9 @@ class Function(object):
         aptemp = ap.group(0)
         apassword = aptemp[9:]
         if username == ausername and password == apassword:
-            print ['Will be written:  ' + text]
-            return self.filewriter(text, start_response)
+            text = data['content']
+            return self.writer(start_response, text)
         return self.badlogin(start_response)
-
-    def filewriter(self, text, start_response):
-        import os
-        from time import strftime
-        tstamp = strftime("%d%m%y%H%M%S")
-        path = 'res'
-        if not os.path.exists(path):
-            os.makedirs(path)
-        filename = 'Transfer_' + tstamp
-        with open(os.path.join(path, filename), 'wb') as temp_file:
-            temp_file.write(text)
-        start_response('200 OK', [('Content-Type', 'text/html')])
-        return ['Text Saved']
 
     def not_found(self, environ, start_response):
         start_response('404 NOT FOUND', [('Content-Type', 'text/html')])
@@ -66,6 +51,19 @@ class Function(object):
                 environ['test.url_args'] = match.groups()
                 return callback(self, environ, start_response)
         return self.not_found(environ, start_response)
+
+    def writer(self, start_response, text):
+        import os
+        from time import strftime
+        tstamp = strftime("%d%m%y%H%M%S")
+        path = 'res'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        filename = 'Transfer_' + tstamp
+        with open(os.path.join(path, filename), 'wb') as temp_file:
+            temp_file.write(text)
+        start_response('200 OK', [('Content-Type', 'text/html')])
+        return ['File Saved']
 
 
 if __name__ == '__main__':
