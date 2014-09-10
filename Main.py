@@ -68,7 +68,7 @@ class Function(object):
 
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
-    httpd = make_server('localhost', 8050, Function().select)
+    httpd = make_server('192.168.232.1', 8050, Function().select)
     print('Serving on port 8050...')
     try:
         httpd.serve_forever()
