@@ -2,7 +2,7 @@ import re
 import json
 
 
-class Function(object):
+class Func(object):
     def index(self, environ, start_response):
         start_response('200 OK', [('Content-Type', 'text/html')])
         return ['Missing arguments']
@@ -68,7 +68,7 @@ class Function(object):
 
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
-    httpd = make_server('192.168.232.1', 8050, Function().select)
+    httpd = make_server('192.168.232.1', 8050, Func().select)
     print('Serving on port 8050...')
     try:
         httpd.serve_forever()
