@@ -1,152 +1,64 @@
-# (c) 2005 Clark C. Evans
-# Copyright (c) 2006 L. C. Rees.  All rights reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-# IN THE SOFTWARE.
+from hashlib import md5
 
-'''HTTP Digest Authentication
-
-This module implements digest HTTP authentication as described in the
-HTTP 1.1 specification:
-
-http://www.w3.org/Protocols/HTTP/1.1/spec.html#DigestAA
-'''
-
-import md5
-import time
-import random
-from wsgiauth.base import HTTPAuth, Scheme
-
-__all__ = ['digest', 'digest_password']
-
-def digest_password(realm, username, password):
-    ''' construct the appropriate hashcode needed for HTTP digest '''
-    return md5.new('%s:%s:%s' % (username, realm, password)).hexdigest()
-
-def digest(realm, authfunc, **kw):
-    '''Decorator for HTTP digest middleware.'''
-    def decorator(application):
-        return HTTPAuth(application, realm, authfunc, DigestAuth, **kw)
-    return decorator
-
-_nonce = dict()
+def authenticate_digest_app(environ,start_response):
+    auth_response = environ.get("HTTP_AUTHORIZATION","none")
+    data = getDigestCredentials(auth_response)
+    data['method'] = environ.get('REQUEST_METHOD')
+    if getDigestResponse(data):
+        ret_value = my_digest_app(environ,start_response)
+    else:
+        ret_value = digestAuthenticationFailed(environ,start_response)
+    return ret_value
 
 
-class DigestAuth(Scheme):
+def getDigestCredentials(auth_response):
+    """Parse HTTP authorization string"""
+    data = {}
+    for item in auth_response.split(','):
+        part = item.find("=")
+        if part > 0:
+            data[item[:part].strip()] = item[part+1:].strip("\"")
+    return data
 
-    '''Performs HTTP digest authentication.'''
 
-    authtype = 'digest'
+def getDigestResponse(data):
+    """Hash local secret"""
+    user = data.get("Digest username")
+    realm = data.get("realm")
+    valueA = md5()
+    valueA.update('%s:%s:%s' % (user, realm, 'secret'))
+    hashA = valueA.hexdigest()
+    #change section on request
+    nonce = data.get("nonce")
+    uri = data.get("uri")
+    method = data.get('method')
+    valueB = md5()
+    valueB.update("%s:%s" %(method,uri))
+    hashB = valueB.hexdigest()
 
-    def __init__(self, realm, authfunc, **kw):
-        super(DigestAuth, self).__init__(realm, authfunc, **kw)
-        self.nonce = kw.get('nonce', _nonce) # dict to prevent replay attacks
+    value = md5()
+    value.update("%s:%s:%s" %(hashA, nonce, hashB))
 
-    def _response(self, stale = ''):
-        '''Builds the authentication error.'''
-        def coroutine(environ, start_response):
-            nonce = md5.new('%s:%s' % (time.time(),
-                random.random())).hexdigest()
-            opaque = md5.new('%s:%s' % (time.time(),
-                random.random())).hexdigest()
-            self.nonce[nonce] = None
-            parts = {'realm':self.realm, 'qop':'auth', 'nonce':nonce,
-                'opaque':opaque}
-            if stale: parts['stale'] = 'true'
-            head = ', '.join(['%s="%s"' % (k, v) for (k, v) in parts.items()])
-            start_response('401 Unauthorized', [('content-type','text/plain'),
-                ('WWW-Authenticate', 'Digest %s' % head)])
-            return [self.message]
-        return coroutine
+    return data.get("response") == value.hexdigest()
 
-    def compute(self, ha1, username, response, method, path, nonce, nc,
-            cnonce, qop):
-        '''Computes the authentication, raises error if unsuccessful.'''
-        if not ha1: return self.response()
-        ha2 = md5.new('%s:%s' % (method, path)).hexdigest()
-        if qop:
-            chk = '%s:%s:%s:%s:%s:%s' % (ha1, nonce, nc, cnonce, qop, ha2)
-        else:
-            chk = '%s:%s:%s' % (ha1, nonce, ha2)
-        if response != md5.new(chk).hexdigest():
-            if nonce in self.nonce: del self.nonce[nonce]
-            return self.response()
-        pnc = self.nonce.get(nonce, '00000000')
-        if nc <= pnc:
-            if nonce in self.nonce: del self.nonce[nonce]
-            return self.response(stale=True)
-        self.nonce[nonce] = nc
-        return username
 
-    def __call__(self, environ):
-        '''This function takes a WSGI environment and authenticates
-        the request returning authenticated user or error.
-        '''
-        method = environ['REQUEST_METHOD']
-        fullpath = environ['SCRIPT_NAME'] + environ['PATH_INFO']
-        authorization = environ.get('HTTP_AUTHORIZATION')
-        if authorization is None: return self.response()
-        authmeth, auth = authorization.split(' ', 1)
-        if 'digest' != authmeth.lower(): return self.response()
-        amap = dict()
-        for itm in auth.split(', '):
-            k, v = [s.strip() for s in itm.split('=', 1)]
-            amap[k] = v.replace('"', '')
-        try:
-            username = amap['username']
-            authpath = amap['uri']
-            nonce = amap['nonce']
-            realm = amap['realm']
-            response = amap['response']
-            assert authpath.split('?', 1)[0] in fullpath
-            assert realm == self.realm
-            qop = amap.get('qop', '')
-            cnonce = amap.get('cnonce', '')
-            nc = amap.get('nc', '00000000')
-            if qop:
-                assert 'auth' == qop
-                assert nonce and nc
-        except:
-            return self.response()
-        ha1 = self.authfunc(environ, realm, username)
-        return self.compute(ha1, username, response, method, authpath, nonce,
-            nc, cnonce, qop)
+def digestAuthenticationFailed(environ, start_response):
+    status = '401 Unauthorized'
+    response_headers = [('WWW-Authenticate', 'Digest realm="securearea" nonce="two"'), ('Content-type', 'text/html')]
+    start_response(status, response_headers)
+    return ["<html><body>Authorization has failed</body></html>"]
 
-class Scheme(object):
 
-    '''HTTP Authentication Base.'''
-
-    _msg = 'This server could not verify that you are authorized'
-
-    def __init__(self, realm, authfunc, **kw):
-        self.realm, self.authfunc = realm, authfunc
-        # WSGI app that sends a 401 response
-        self.response = kw.get('response', self._response)
-        # Message to return with 401 response
-        self.message = kw.get('message', self._msg)
-
-    def _response(self, environ, start_response):
-        raise NotImplementedError()
+def my_digest_app(environ, start_response):
+    status = '200 OK'
+    response_headers = [('Content-type', 'text/html')]
+    start_response(status, response_headers)
+    return ['<html><body><p>Digest stylie.</p></body></html>']
 
 
 if __name__ == '__main__':
     from wsgiref.simple_server import make_server
-    httpd = make_server('192.168.232.1', 8050, Scheme(realm='/auth', authfunc='digest'))
+    httpd = make_server('192.168.232.1', 8050, authenticate_digest_app)
     print('Serving on port 8050...')
     try:
         httpd.serve_forever()
