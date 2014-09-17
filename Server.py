@@ -37,9 +37,11 @@ class Server(object):
     def getDigestResponse(self, data):
         """Hash local secret"""
         user = data.get("Digest username")
+        print(user)
         if user is None:
             return False
         else:
+            print('auth start')
             f = open('ident')
             fil = f.read()
             au = re.search(re.compile('username=%s' %user), fil)
@@ -54,29 +56,33 @@ class Server(object):
                 pass2string = pass2temp.group(0)
                 apassword = pass2string[9:]
                 valueA = md5()
-                valueA.update('%s:%s:%s' % (user, 'str@host.com', apassword))
+                valueA.update('%s:%s:%s' % (user, 'strhost', apassword))
                 hashA = valueA.hexdigest()
 
                 #change section on request
-                uri = '/digest/'
+                uri = 'http://192.168.232.1:8050/digest/'
                 method = 'PUT'
                 valueB = md5()
                 valueB.update("%s:%s" % (method, uri))
                 hashB = valueB.hexdigest()
                 nt = self.nonce
+                print('nonce ' + nt)
                 value = md5()
                 value.update("%s:%s:%s" % (hashA, nt, hashB))
+                res = value.hexdigest()
+                print(res)
 
                 return data.get("response") == value.hexdigest()
 
     def digestAuthenticationFailed(self, environ, start_response):
         status = '401 Unauthorized'
         self.nonce = ''.join([random.choice(string.ascii_lowercase + string.digits) for n in xrange(34)])
-        response_headers = [('WWW-Authenticate', 'Digest realm="str@host.com" nonce=' + self.nonce), ('Content-type', 'text/html')]
+        response_headers = [('WWW-Authenticate', 'Digest realm="strhost", nonce="' + self.nonce + '"'), ('Content-type', 'text/html')]
         start_response(status, response_headers)
         return ["<html><body>Authorization has failed</body></html>"]
 
     def my_digest_app(self, environ, start_response):
+        print('auth success')
         import os
         from time import strftime
 
@@ -97,6 +103,7 @@ class Server(object):
             temp_file.write(text)
 
         self.nonce = ''.join([random.choice(string.ascii_lowercase + string.digits) for n in xrange(34)])
+        print('auth success')
         status = '200 OK'
         response_headers = [('Content-type', 'text/html')]
         start_response(status, response_headers)
