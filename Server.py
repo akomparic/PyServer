@@ -37,11 +37,9 @@ class Server(object):
     def getDigestResponse(self, data):
         """Hash local secret"""
         user = data.get("Digest username")
-        print(user)
         if user is None:
             return False
         else:
-            print('auth start')
             f = open('ident')
             fil = f.read()
             au = re.search(re.compile('username=%s' %user), fil)
@@ -66,11 +64,9 @@ class Server(object):
                 valueB.update("%s:%s" % (method, uri))
                 hashB = valueB.hexdigest()
                 nt = self.nonce
-                print('nonce ' + nt)
                 value = md5()
                 value.update("%s:%s:%s" % (hashA, nt, hashB))
                 res = value.hexdigest()
-                print(res)
 
                 return data.get("response") == value.hexdigest()
 
@@ -82,7 +78,6 @@ class Server(object):
         return ["<html><body>Authorization has failed</body></html>"]
 
     def my_digest_app(self, environ, start_response):
-        print('auth success')
         import os
         from time import strftime
 
